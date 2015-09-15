@@ -11,6 +11,8 @@ var Links = require('./app/collections/links');
 var Link = require('./app/models/link');
 var Click = require('./app/models/click');
 
+var bcrypt = require('bcrypt-nodejs');
+
 var app = express();
 
 app.set('views', __dirname + '/views');
@@ -22,6 +24,19 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(__dirname + '/public'));
 
+// if(state ==== so and so){
+// app.use('/', function(req, res){
+//   res.send("sorry");
+// })
+// }
+
+app.get('/signup', function(req, res) {
+  res.render('signup');
+});
+
+app.get('/login', function(req, res) {
+  res.render('login');
+});
 
 app.get('/', 
 function(req, res) {
@@ -46,17 +61,17 @@ function(req, res) {
 
   if (!util.isValidUrl(uri)) {
     console.log('Not a valid url: ', uri);
-    return res.send(404);
+    return res.status(404).end();
   }
 
   new Link({ url: uri }).fetch().then(function(found) {
     if (found) {
-      res.send(200, found.attributes);
+      res.status(200).send(found.attributes);
     } else {
       util.getUrlTitle(uri, function(err, title) {
         if (err) {
           console.log('Error reading URL heading: ', err);
-          return res.send(404);
+          return res.status(404).end();
         }
 
         Links.create({
@@ -65,7 +80,7 @@ function(req, res) {
           base_url: req.headers.origin
         })
         .then(function(newLink) {
-          res.send(200, newLink);
+          res.status(200).send(newLink);
         });
       });
     }
@@ -76,6 +91,51 @@ function(req, res) {
 // Write your authentication routes here
 /************************************************************/
 
+app.post('/signup', function(req, res) {
+  var username = req.body.username;
+  var password = req.body.password;
+  // var salt = bcrypt.genSaltSync();
+  // var hash = bcrypt.hashSync(password.concat(salt));
+
+  new User({'username': username,
+          'password': password
+      }).save().then(function(){
+        res.send(200, "youre a user now");  
+      })
+});
+
+app.post('/login', function(req, res){
+  var username = req.body.username;
+  var password = req.body.password;
+
+  db.knex('users').where('username', '=', username).then(function(results){
+    if(results.length > 0){
+      var hash = results[0].hash;
+      var salt = results[0].salt;
+
+      if(bcrypt.compareSync(password, hash)){
+        res.writeHead(302,{Location: '/'});
+        res.send();
+      } else { 
+        res.writeHead(302,{Location: '/login'});
+        res.send();
+      }
+    
+    } else { 
+      res.writeHead(302,{Location: '/login'});
+      res.send();
+    }
+
+  })
+
+})
+
+
+
+// [ { id: 6,
+//     username: 'me',
+//     hash: '$2a$10$9F8F1MZf9J3B32HowWRkhemVqOnInAtlvDgR3wn/Jmf1hE676BXUi',
+//     salt: '$2a$10$k8w1FVj5IIn.2wilWjJE1u' } ]
 
 
 /************************************************************/

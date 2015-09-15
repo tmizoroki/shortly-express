@@ -61,9 +61,9 @@ describe('', function() {
 
   describe('Link creation:', function(){
 
-    var requestWithSession = request.defaults({jar: true});
+var requestWithSession = request.defaults({jar: true});
 
-var xbeforeEach = function(){};
+var beforeEach = function(done){
       // create a user that we can then log-in with
       new User({
           'username': 'Phillip',
@@ -83,6 +83,7 @@ var xbeforeEach = function(){};
           done();
         });
       });
+    };
 
     it('Only shortens valid urls, returning a 404 - Not found for invalid urls', function(done) {
       var options = {
@@ -158,7 +159,7 @@ var xbeforeEach = function(){};
         link = new Link({
           url: 'http://roflzoo.com/',
           title: 'Funny pictures of animals, funny dog pictures',
-          base_url: 'http://127.0.0.1:4568'
+          base_url: 'http://127.0.0.1:4568/'
         });
         link.save().then(function(){
           done();
@@ -177,12 +178,14 @@ var xbeforeEach = function(){};
 
         requestWithSession(options, function(error, res, body) {
           var code = res.body.code;
+          console.log("code:-------------------------------", code)
           expect(code).to.equal(link.get('code'));
           done();
         });
       });
 
       it('Shortcode redirects to correct url', function(done) {
+        console.log("code:-------------------------------", link.get('code'));
         var options = {
           'method': 'GET',
           'uri': 'http://127.0.0.1:4568/' + link.get('code')
@@ -190,6 +193,7 @@ var xbeforeEach = function(){};
 
         requestWithSession(options, function(error, res, body) {
           var currentLocation = res.request.href;
+          console.log("loc----------------------------------",currentLocation)
           expect(currentLocation).to.equal('http://roflzoo.com/');
           done();
         });
