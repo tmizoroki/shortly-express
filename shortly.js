@@ -2,6 +2,8 @@ var express = require('express');
 var util = require('./lib/utility');
 var partials = require('express-partials');
 var bodyParser = require('body-parser');
+var cookieParser = require('cookie-parser');
+var session = require('express-session');
 
 
 var db = require('./app/config');
@@ -13,7 +15,14 @@ var Click = require('./app/models/click');
 
 var bcrypt = require('bcrypt-nodejs');
 
+
 var app = express();
+
+//login session
+app.use(cookieParser());
+app.use(session({ secret: 'fucking secrets!', cookie: { maxAge: 60000 }}))
+
+
 
 app.set('views', __dirname + '/views');
 app.set('view engine', 'ejs');
@@ -24,12 +33,6 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(__dirname + '/public'));
 
-// if(state ==== so and so){
-// app.use('/', function(req, res){
-//   res.send("sorry");
-// })
-// }
-
 app.get('/signup', function(req, res) {
   res.render('signup');
 });
@@ -38,12 +41,20 @@ app.get('/login', function(req, res) {
   res.render('login');
 });
 
-app.get('/', 
+app.get('/logout', function(req, res){
+    req.session.destroy(function(){
+        res.redirect('/');
+    });
+});
+
+app.get('*', util.restrict);
+
+app.get('/',
 function(req, res) {
   res.render('index');
 });
 
-app.get('/create', 
+app.get('/create',
 function(req, res) {
   res.render('index');
 });
@@ -57,6 +68,7 @@ function(req, res) {
 
 app.post('/links', 
 function(req, res) {
+  // console.log("post to links");
   var uri = req.body.url;
 
   if (!util.isValidUrl(uri)) {
@@ -98,10 +110,14 @@ app.post('/signup', function(req, res) {
   // var hash = bcrypt.hashSync(password.concat(salt));
 
   new User({'username': username,
-          'password': password
-      }).save().then(function(){
-        res.send(200, "youre a user now");  
-      })
+    'password': password
+  })
+  .save().then(function(){
+    req.session.regenerate(function() {
+      req.session.user = username;
+      res.redirect('/');
+    })
+  });
 });
 
 app.post('/login', function(req, res){
@@ -114,16 +130,16 @@ app.post('/login', function(req, res){
       var salt = results[0].salt;
 
       if(bcrypt.compareSync(password, hash)){
-        res.writeHead(302,{Location: '/'});
-        res.send();
+        req.session.regenerate(function() {
+          req.session.user = username;
+          res.redirect('/');
+        });
       } else { 
-        res.writeHead(302,{Location: '/login'});
-        res.send();
+        res.redirect('/login');
       }
     
     } else { 
-      res.writeHead(302,{Location: '/login'});
-      res.send();
+      res.redirect('/login');
     }
 
   })
