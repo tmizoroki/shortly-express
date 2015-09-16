@@ -15,14 +15,48 @@ var Click = require('./app/models/click');
 
 var bcrypt = require('bcrypt-nodejs');
 
+/* ////////////////  */
 
+var config = require('./oauth.js')
+var passport = require('passport')
+var GithubStrategy = require('passport-github').Strategy;
+
+passport.serializeUser(function(user, done) {
+  done(null, user);
+});
+passport.deserializeUser(function(obj, done) {
+  done(null, obj);
+});
+
+
+passport.use(new GithubStrategy({
+ clientID: config.github.clientID,
+ clientSecret: config.github.clientSecret,
+ callbackURL: config.github.callbackURL
+},
+
+function(accessToken, refreshToken, profile, done) {
+  process.nextTick(function () {
+    return done(null, profile);
+  });
+  }
+));
+
+
+/* ////////////////  */
 var app = express();
 
 //login session
 app.use(cookieParser());
-app.use(session({ secret: 'fucking secrets!', cookie: { maxAge: 60000 }}))
-
-
+app.use(session({
+  secret: 'keyboard cat',
+  cookie: { maxAge: 60000 },
+  unset: 'destroy',
+  resave: false,
+  saveUninitialized: false
+}));
+app.use(passport.initialize());
+app.use(passport.session());
 
 app.set('views', __dirname + '/views');
 app.set('view engine', 'ejs');
@@ -33,21 +67,29 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(__dirname + '/public'));
 
+
+app.get('/login', passport.authenticate('github'), function(req, res){
+
+});
+
+app.get('/login/callback',
+  passport.authenticate('github', { failureRedirect: '/login' }),
+  function(req, res) {
+    res.redirect('/');
+});
+
 app.get('/signup', function(req, res) {
   res.render('signup');
 });
 
-app.get('/login', function(req, res) {
-  res.render('login');
-});
-
 app.get('/logout', function(req, res){
-    req.session.destroy(function(){
-        res.redirect('/');
-    });
+  //req.session.destroy();
+  req.logout();
+  req.session = null;
+  res.redirect('/create');
 });
 
-app.get('*', util.restrict);
+app.get('*', util.authenticate);
 
 app.get('/',
 function(req, res) {
@@ -62,7 +104,7 @@ function(req, res) {
 app.get('/links', 
 function(req, res) {
   Links.reset().fetch().then(function(links) {
-    res.send(200, links.models);
+    res.stauts(200).send(links.models);
   });
 });
 
@@ -103,48 +145,48 @@ function(req, res) {
 // Write your authentication routes here
 /************************************************************/
 
-app.post('/signup', function(req, res) {
-  var username = req.body.username;
-  var password = req.body.password;
-  // var salt = bcrypt.genSaltSync();
-  // var hash = bcrypt.hashSync(password.concat(salt));
+// app.post('/signup', function(req, res) {
+//   var username = req.body.username;
+//   var password = req.body.password;
+//   // var salt = bcrypt.genSaltSync();
+//   // var hash = bcrypt.hashSync(password.concat(salt));
 
-  new User({'username': username,
-    'password': password
-  })
-  .save().then(function(){
-    req.session.regenerate(function() {
-      req.session.user = username;
-      res.redirect('/');
-    })
-  });
-});
+//   new User({'username': username,
+//     'password': password
+//   })
+//   .save().then(function(){
+//     req.session.regenerate(function() {
+//       req.session.user = username;
+//       res.redirect('/');
+//     })
+//   });
+// });
 
-app.post('/login', function(req, res){
-  var username = req.body.username;
-  var password = req.body.password;
+// app.post('/login', function(req, res){
+//   var username = req.body.username;
+//   var password = req.body.password;
 
-  db.knex('users').where('username', '=', username).then(function(results){
-    if(results.length > 0){
-      var hash = results[0].hash;
-      var salt = results[0].salt;
+//   db.knex('users').where('username', '=', username).then(function(results){
+//     if(results.length > 0){
+//       var hash = results[0].hash;
+//       var salt = results[0].salt;
 
-      if(bcrypt.compareSync(password, hash)){
-        req.session.regenerate(function() {
-          req.session.user = username;
-          res.redirect('/');
-        });
-      } else { 
-        res.redirect('/login');
-      }
+//       if(bcrypt.compareSync(password, hash)){
+//         req.session.regenerate(function() {
+//           req.session.user = username;
+//           res.redirect('/');
+//         });
+//       } else { 
+//         res.redirect('/login');
+//       }
     
-    } else { 
-      res.redirect('/login');
-    }
+//     } else { 
+//       res.redirect('/login');
+//     }
 
-  })
+//   })
 
-})
+// })
 
 
 
